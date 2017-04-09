@@ -1,0 +1,310 @@
+<html>
+    <head>
+        <script src='https://ajax.googleapis.com/ajax/libs/jquery/2.2.4/jquery.min.js'></script>
+        <script src='http://underscorejs.org/underscore-min.js'></script>
+        <script src='jquery-ui.min.js'></script>
+        <link rel="stylesheet" type="text/css" href="jquery-ui.min.css">
+        <style>
+          body, html{
+            padding:0;
+            margin:0;
+          }
+          .docRect{
+            position:absolute;
+            top:50px;
+            left:60px;
+            width:800px;
+            height:600px;
+            border:1px solid blue;
+          }
+          .resizer{
+            width:16px;
+            height:16px;
+            margin-left:-8px;
+            margin-top:-8px;
+            background:green;
+            position: absolute;
+            cursor: pointer;
+            opacity: 0.66;
+          }
+          .resizer-mp{
+            background:red;
+          }
+          .resizer-rot{
+            background:orange;
+          }
+          .resizer-n, .resizer-s, .resizer-w, .resizer-e{
+            background: orange;
+          }
+          .resizer-nw, .resizer-se{
+            background: purple;
+          }
+          .container{
+            position: absolute;
+            background: rgba(15,150,150,0.2);
+          }
+          .inner{
+            position: absolute;
+            background: rgba(150,0,0,0.33);
+            transform-origin:center center;
+            transform:rotate(10deg);
+          }
+        </style>
+    </head>
+    <body>
+      <div class='docRect'>
+        <div class='container'>
+          <div class='inner'>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        var MathUtils = {};
+        MathUtils.pointBetweenPerp = function(p0, p1, p2){
+          var d, p2dotd, p0dotd, ddotd, t;
+          d = {"left":p0.left - p1.left, "top":p0.top - p1.top};
+          p2dotd = MathUtils.dot(d, p2);
+          p0dotd = MathUtils.dot(d, p0);
+          ddotd = MathUtils.dot(d, d);
+          t = (p2dotd - p0dotd) / ddotd;
+          return {
+              "left":p0.left + t* d.left,
+              "top":p0.top + t* d.top
+          };
+        };
+        MathUtils.midpoint = function(p0, p1){
+          return {
+            "left": (p0.left + p1.left) / 2,
+            "top": (p0.top + p1.top) / 2
+          };
+        };
+        MathUtils.dot = function(a, b){
+          return a.left* b.left + a.top* b.top;
+        };
+        MathUtils.len = function(p){
+          return MathUtils.dist(p, {left:0, top:0});
+        };
+        MathUtils.dist = function(p0, p1){
+            var dx, dy;
+            dx = p0.left - p1.left;
+            dy = p0.top - p1.top;
+            return Math.sqrt(dx*dx + dy*dy);
+        };
+        MathUtils.angleBetween = function(v0, v1, vertex){
+          var mod0, mod1, cosA, vertexToV0, vertexToV1;
+          vertex = vertex || {"left":0, "top":0};
+          vertexToV0 = MathUtils.subtract(v0, vertex);
+          vertexToV1 = MathUtils.subtract(v1, vertex);
+          mod0 = MathUtils.len(vertexToV0);
+          mod1 = MathUtils.len(vertexToV1);
+          cosA = MathUtils.dot(vertexToV0, vertexToV1) / (mod0 * mod1);
+          cosA = Math.max(Math.min(cosA, 1), -1);
+          return Math.acos(cosA);
+        };
+        MathUtils.add = function(p0, p1){
+          return {
+            "left":p0.left + p1.left,
+            "top":p0.top + p1.top
+          };
+        };
+        MathUtils.subtract = function(p0, p1){
+          return {
+            "left":p0.left - p1.left,
+            "top":p0.top - p1.top
+          };
+        };
+        MathUtils.rot = function(x, y, angleRad){
+            return {
+              x:x*Math.cos(angleRad) - y*Math.sin(angleRad),
+              y:x*Math.sin(angleRad) + y*Math.cos(angleRad)
+            };
+        };
+
+
+      </script>
+      <script>
+        var _mapArrayToObject = function(a, fn){
+          var obj = {};
+          _.each(a, function(el){
+            obj[el] = fn(el);
+          });
+          return obj;
+        };
+        var data = {
+            midpoint: {left:190, top:140},
+            width: 180,
+            height: 80,
+            angleRad: 10*Math.PI/180
+        };
+        data.fullW = data.height*Math.sin(data.angleRad) + data.width*Math.cos(data.angleRad);
+        data.fullH = data.height*Math.cos(data.angleRad) + data.width*Math.sin(data.angleRad);
+        data.topLeft = {
+          left:data.midpoint.left - data.fullW/2,
+          top:data.midpoint.top - data.fullH/2
+        };
+        var DIRECTIONS = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+        $('.inner').width(data.width).height(data.height);
+        _.each(DIRECTIONS, function(dir){
+          $('.docRect').append("<div class='resizer resizer-" + dir + "'></div>");
+        });
+        $('.docRect').append("<div class='resizer resizer-mp'></div>");
+        $('.docRect').append("<div class='resizer resizer-rot'></div>");
+        var positionElsFromData = function(){
+          $('.container').width(data.fullW).height(data.fullH)
+          .css("left", data.topLeft.left)
+          .css("top", data.topLeft.top);
+          $('.inner').css("transform", "rotate(" + data.angleRad*(180/Math.PI) + "deg)")
+          .css("left", (data.fullW - data.width)/2)
+          .css("top", (data.fullH - data.height)/2)
+          .css("width", data.width)
+          .css("height", data.height);
+        };
+        var positionHandlesFromData = function(options){
+          var c = Math.cos(data.angleRad), s = Math.sin(data.angleRad), h = data.height, w = data.width;
+          options = _.defaults(options || {}, {omit:[]});
+          var newPos = {
+            "nw":{left:h*s, top:0},
+            "n":{left:(h*s + data.fullW)/2, top:w*s/2},
+            "ne":{left:data.fullW, top:w*s},
+            "e":{left:(data.fullW + w*c)/2, top:(w*s + data.fullH)/2},
+            "se":{left:w*c, top:data.fullH},
+            "s":{left:w*c/2, top:(data.fullH + h*c)/2},
+            "sw":{left:0, top:h*c},
+            "w":{left:h*s/2, top:h*c/2}
+          };
+          _.each(DIRECTIONS, function(dir){
+            newPos[dir] = MathUtils.add(newPos[dir], data.topLeft);
+            if(options.omit.indexOf(dir) === -1){
+              $(".resizer-" + dir).css(newPos[dir]);
+            }
+          });
+          $(".resizer-mp").css("left", data.midpoint.left).css("top", data.midpoint.top);
+          if(options.omit.indexOf("rot") === -1){
+            var midpointRel = MathUtils.midpoint(
+              MathUtils.subtract(data.midpoint, data.topLeft),
+              MathUtils.subtract(newPos["e"], data.topLeft)
+            );
+            $(".resizer-rot").css(MathUtils.add(data.topLeft, midpointRel));
+          }
+        };
+        var updateDataRot = function(){
+          data.fullW = data.height*Math.sin(data.angleRad) + data.width*Math.cos(data.angleRad);
+          data.fullH = data.height*Math.cos(data.angleRad) + data.width*Math.sin(data.angleRad);
+          data.topLeft = {
+            left:data.midpoint.left - data.fullW/2,
+            top:data.midpoint.top - data.fullH/2
+          };
+        };
+
+        var getMinLeft = function(d){
+          return _.min(_.pluck(d, "left"));
+        };
+        var getMinTop = function(d){
+          return _.min(_.pluck(d, "top"));
+        };
+        var getMinMarker = function(s){
+            var minVal = Infinity, marker, pos = getHandlePos();
+            _.each(DIRECTIONS, function(dir){
+              if(pos[dir][s] < minVal){
+                marker = dir;
+                minVal = pos[dir][s];
+              }
+            });
+            return marker;
+        };
+        var getMinLeftMarker = function(){
+          return getMinMarker("left");
+        };
+        var getMinTopMarker = function(){
+          return getMinMarker("top");
+        };
+
+        var getNewPos = function(dir){
+          var pos = getHandlePos(), p = {};
+          if(dir === "se"){
+            n = {"ne":["nw", "ne"], "sw":["nw", "sw"]};
+          }
+          else if(dir === "sw"){
+            n = {"nw":["ne", "nw"], "se":["ne", "se"]};
+          }
+          _.each(_.keys(n), function(key){
+            p[key] = MathUtils.pointBetweenPerp(data.posStart[n[key][0]], data.posStart[n[key][1]], pos[dir]);
+          });
+          p[dir] = pos[dir];
+          return p;
+        };
+        var updateData = function(dir){
+          var pos = getHandlePos();
+          var newPos = _.extend({}, data.posStart, getNewPos(dir));
+          data.topLeft = {
+            left:newPos[data.minLeftMarker].left,
+            top:newPos[data.minTopMarker].top
+          };
+          data.midpoint = MathUtils.midpoint(newPos["nw"], newPos["se"]);
+          data.width = MathUtils.dist(newPos["nw"], newPos["ne"]);
+          data.height = MathUtils.dist(newPos["nw"], newPos["sw"]);
+          data.fullW = data.height*Math.sin(data.angleRad) + data.width*Math.cos(data.angleRad);
+          data.fullH = data.height*Math.cos(data.angleRad) + data.width*Math.sin(data.angleRad);
+        };
+        var onDragStart = function(){
+          cache();
+        };
+        var onDragStop = function(){
+          data.topLeft = {
+            left:parseFloat($(".container").css("left")),
+            top:parseFloat($(".container").css("top"))
+          };
+          data.midpoint = MathUtils.midpoint(data.posStart["nw"], data.posStart["se"]);
+          positionHandlesFromData();
+          positionElsFromData();
+        };
+        var onHandleStop = function(dir){
+          updateData(dir);
+          positionHandlesFromData({omit:[dir]});
+          positionElsFromData();
+        };
+        var getHandlePos = function(){
+          return _mapArrayToObject(DIRECTIONS, function(dir){
+            return $(".resizer-"+dir).position();
+          });
+        };
+        var cache = function(){
+          data.topLeftStart = _.extend({}, data.topLeft);
+          data.angleRadStart = data.angleRad;
+          data.rotPosStart = $(".resizer-rot").position();
+          data.posStart = getHandlePos();
+          data.minLeftMarker = getMinLeftMarker();
+          data.minTopMarker = getMinTopMarker();
+        };
+        var onHandleStart = function(dir){
+          cache();
+        };
+        var onHandleDrag = function(dir){
+            updateData(dir);
+            positionHandlesFromData({omit:[dir]});
+            positionElsFromData();
+        };
+        var onRotDrag = function(){
+            var v1 = $(".resizer-rot").position();
+            var a = MathUtils.angleBetween(data.rotPosStart, v1, data.midpoint);
+            data.angleRad = data.angleRadStart + a;
+            updateDataRot();
+            positionHandlesFromData({omit:['rot']});
+            positionElsFromData();
+        };
+        var onRotStop = function(){
+
+        };
+        var onRotStart = function(){
+            cache();
+        };
+        positionElsFromData();
+        positionHandlesFromData();
+        $(".container").draggable({"containment":".docRect", "start":onDragStart, "stop":onDragStop});
+        $(".resizer-se").draggable({"start":onHandleStart.bind(this, "se"), "stop":onHandleStop.bind(this, "se"), "drag":onHandleDrag.bind(this, "se")});
+        $(".resizer-sw").draggable({"start":onHandleStart.bind(this, "sw"), "stop":onHandleStop.bind(this, "sw"), "drag":onHandleDrag.bind(this, "sw")});
+        $(".resizer-rot").draggable({"stop":onRotStop, "drag":onRotDrag, "start":onRotStart});
+      </script>
+    </body>
+</html>

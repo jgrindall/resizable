@@ -1,0 +1,18 @@
+{
+  	"name": "",
+  	"version": "0.0.1",
+  	"description": "",
+  	"main": "web.js",
+    "repository": {
+      "type": "git",
+      "url": ""
+    },
+  	"scripts": {
+    	"test": "echo \"Error: no test specified\" && exit 1"
+ 	 },
+  	"author": "jgrindall",
+  	"license": "BSD",
+  	"dependencies": {
+    	"express": "~3.5.1"
+  	}
+}
