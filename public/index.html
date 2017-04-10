@@ -129,7 +129,7 @@
             midpoint: {left:190, top:140},
             width: 180,
             height: 80,
-            angleRad: 100*Math.PI/180
+            angleRad: 280*Math.PI/180
         };
         var _mapArrayToObject = function(a, fn){
           var obj = {};
@@ -164,6 +164,22 @@
               "ne":{left:h*s, top:data.fullH},
               "se":{left:0, top:w*s},
               "sw":{left:-w*c, top:0}
+            };
+          }
+          else if(data.angleRad <= 3*Math.PI/2){
+            allPos = {
+              "nw":{left:-w*c, top:data.fullH},
+              "ne":{left:0, top:-h*c},
+              "se":{left:-h*s, top:0},
+              "sw":{left:data.fullW, top:-w*s}
+            };
+          }
+          else {
+            allPos = {
+              "nw":{left:0, top:-w*s},
+              "ne":{left:w*c, top:0},
+              "se":{left:data.fullW, top:h*c},
+              "sw":{left:-h*s, top:data.fullH}
             };
           }
           allPos["n"] = MathUtils.midpoint(allPos["ne"], allPos["nw"]);
@@ -203,6 +219,14 @@
             data.fullW = data.height*s - data.width*c;
             data.fullH = -data.height*c + data.width*s;
           }
+          else if(data.angleRad <= 3*Math.PI/2){
+            data.fullW = -data.height*s - data.width*c;
+            data.fullH = -data.height*c - data.width*s;
+          }
+          else {
+            data.fullW = -data.height*s + data.width*c;
+            data.fullH = data.height*c - data.width*s;
+          }
         };
         var updateTopLeft = function(){
           data.topLeft = MathUtils.subtract(data.midpoint, {left:data.fullW/2, top:data.fullH/2});
@@ -218,6 +242,12 @@
           else if(data.angleRad <= Math.PI){
             return "se";
           }
+          else if(data.angleRad <= 3*Math.PI/2){
+            return "ne";
+          }
+          else {
+            return "nw";
+          }
         };
         var getMinTopMarker = function(){
           if(data.angleRad <= Math.PI/2){
@@ -225,6 +255,12 @@
           }
           else if(data.angleRad <= Math.PI){
             return "sw";
+          }
+          else if(data.angleRad <= 3*Math.PI/2){
+            return "se";
+          }
+          else{
+            return "ne";
           }
         };
         var getNewPos = function(dir){
