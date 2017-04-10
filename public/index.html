@@ -124,6 +124,13 @@
 
       </script>
       <script>
+        var DIRECTIONS = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+        var data = {
+            midpoint: {left:190, top:140},
+            width: 180,
+            height: 80,
+            angleRad: 10*Math.PI/180
+        };
         var _mapArrayToObject = function(a, fn){
           var obj = {};
           _.each(a, function(el){
@@ -131,25 +138,6 @@
           });
           return obj;
         };
-        var data = {
-            midpoint: {left:190, top:140},
-            width: 180,
-            height: 80,
-            angleRad: 10*Math.PI/180
-        };
-        data.fullW = data.height*Math.sin(data.angleRad) + data.width*Math.cos(data.angleRad);
-        data.fullH = data.height*Math.cos(data.angleRad) + data.width*Math.sin(data.angleRad);
-        data.topLeft = {
-          left:data.midpoint.left - data.fullW/2,
-          top:data.midpoint.top - data.fullH/2
-        };
-        var DIRECTIONS = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
-        $('.inner').width(data.width).height(data.height);
-        _.each(DIRECTIONS, function(dir){
-          $('.docRect').append("<div class='resizer resizer-" + dir + "'></div>");
-        });
-        $('.docRect').append("<div class='resizer resizer-mp'></div>");
-        $('.docRect').append("<div class='resizer resizer-rot'></div>");
         var positionElsFromData = function(){
           $('.container').width(data.fullW).height(data.fullH)
           .css("left", data.topLeft.left)
@@ -188,20 +176,21 @@
             $(".resizer-rot").css(MathUtils.add(data.topLeft, midpointRel));
           }
         };
-        var updateDataRot = function(){
-          data.fullW = data.height*Math.sin(data.angleRad) + data.width*Math.cos(data.angleRad);
-          data.fullH = data.height*Math.cos(data.angleRad) + data.width*Math.sin(data.angleRad);
+        var updateFullWAndH = function(){
+          if(data.angleRad < Math.PI/2){
+            data.fullW = data.height*Math.sin(data.angleRad) + data.width*Math.cos(data.angleRad);
+            data.fullH = data.height*Math.cos(data.angleRad) + data.width*Math.sin(data.angleRad);
+          }
+        };
+        var updateTopLeft = function(){
           data.topLeft = {
             left:data.midpoint.left - data.fullW/2,
             top:data.midpoint.top - data.fullH/2
           };
         };
-
-        var getMinLeft = function(d){
-          return _.min(_.pluck(d, "left"));
-        };
-        var getMinTop = function(d){
-          return _.min(_.pluck(d, "top"));
+        var updateDataRot = function(){
+          updateFullWAndH();
+          updateTopLeft();
         };
         var getMinMarker = function(s){
             var minVal = Infinity, marker, pos = getHandlePos();
@@ -221,15 +210,33 @@
         };
 
         var getNewPos = function(dir){
-          var pos = getHandlePos(), p = {};
+          var pos = getHandlePos(), p = {}, newPosToCalculate;
           if(dir === "se"){
-            n = {"ne":["nw", "ne"], "sw":["nw", "sw"]};
+            newPosToCalculate = {"ne":["nw", "ne"], "sw":["nw", "sw"]};
           }
           else if(dir === "sw"){
-            n = {"nw":["ne", "nw"], "se":["ne", "se"]};
+            newPosToCalculate = {"nw":["ne", "nw"], "se":["ne", "se"]};
           }
-          _.each(_.keys(n), function(key){
-            p[key] = MathUtils.pointBetweenPerp(data.posStart[n[key][0]], data.posStart[n[key][1]], pos[dir]);
+          else if(dir === "ne"){
+            newPosToCalculate = {"nw":["sw", "nw"], "se":["sw", "se"]};
+          }
+          else if(dir === "nw"){
+            newPosToCalculate = {"ne":["se", "ne"], "sw":["se", "sw"]};
+          }
+          else if(dir === "n"){
+            newPosToCalculate = {"ne":["se", "ne"], "nw":["sw", "nw"]};
+          }
+          else if(dir === "s"){
+            newPosToCalculate = {"sw":["nw", "sw"], "se":["ne", "se"]};
+          }
+          else if(dir === "w"){
+            newPosToCalculate = {"nw":["ne", "nw"], "sw":["se", "sw"]};
+          }
+          else if(dir === "e"){
+            newPosToCalculate = {"ne":["nw", "ne"], "se":["sw", "se"]};
+          }
+          _.each(newPosToCalculate, function(val, key){
+            p[key] = MathUtils.pointBetweenPerp(data.posStart[val[0]], data.posStart[val[1]], pos[dir]);
           });
           p[dir] = pos[dir];
           return p;
@@ -244,8 +251,7 @@
           data.midpoint = MathUtils.midpoint(newPos["nw"], newPos["se"]);
           data.width = MathUtils.dist(newPos["nw"], newPos["ne"]);
           data.height = MathUtils.dist(newPos["nw"], newPos["sw"]);
-          data.fullW = data.height*Math.sin(data.angleRad) + data.width*Math.cos(data.angleRad);
-          data.fullH = data.height*Math.cos(data.angleRad) + data.width*Math.sin(data.angleRad);
+          updateFullWAndH();
         };
         var onDragStart = function(){
           cache();
@@ -286,9 +292,8 @@
             positionElsFromData();
         };
         var onRotDrag = function(){
-            var v1 = $(".resizer-rot").position();
-            var a = MathUtils.angleBetween(data.rotPosStart, v1, data.midpoint);
-            data.angleRad = data.angleRadStart + a;
+            var angleBetween = MathUtils.angleBetween(data.rotPosStart, $(".resizer-rot").position(), data.midpoint);
+            data.angleRad = data.angleRadStart + angleBetween;
             updateDataRot();
             positionHandlesFromData({omit:['rot']});
             positionElsFromData();
@@ -299,11 +304,25 @@
         var onRotStart = function(){
             cache();
         };
+        updateFullWAndH();
+        updateTopLeft();
+        $('.inner').width(data.width).height(data.height);
+        _.each(DIRECTIONS, function(dir){
+          $('.docRect').append("<div class='resizer resizer-" + dir + "'></div>");
+        });
+        $('.docRect').append("<div class='resizer resizer-mp'></div>");
+        $('.docRect').append("<div class='resizer resizer-rot'></div>");
         positionElsFromData();
         positionHandlesFromData();
         $(".container").draggable({"containment":".docRect", "start":onDragStart, "stop":onDragStop});
         $(".resizer-se").draggable({"start":onHandleStart.bind(this, "se"), "stop":onHandleStop.bind(this, "se"), "drag":onHandleDrag.bind(this, "se")});
         $(".resizer-sw").draggable({"start":onHandleStart.bind(this, "sw"), "stop":onHandleStop.bind(this, "sw"), "drag":onHandleDrag.bind(this, "sw")});
+        $(".resizer-nw").draggable({"start":onHandleStart.bind(this, "nw"), "stop":onHandleStop.bind(this, "nw"), "drag":onHandleDrag.bind(this, "nw")});
+        $(".resizer-ne").draggable({"start":onHandleStart.bind(this, "ne"), "stop":onHandleStop.bind(this, "ne"), "drag":onHandleDrag.bind(this, "ne")});
+        $(".resizer-n").draggable({"start":onHandleStart.bind(this, "n"), "stop":onHandleStop.bind(this, "n"), "drag":onHandleDrag.bind(this, "n")});
+        $(".resizer-s").draggable({"start":onHandleStart.bind(this, "s"), "stop":onHandleStop.bind(this, "s"), "drag":onHandleDrag.bind(this, "s")});
+        $(".resizer-w").draggable({"start":onHandleStart.bind(this, "w"), "stop":onHandleStop.bind(this, "w"), "drag":onHandleDrag.bind(this, "w")});
+        $(".resizer-e").draggable({"start":onHandleStart.bind(this, "e"), "stop":onHandleStop.bind(this, "e"), "drag":onHandleDrag.bind(this, "e")});
         $(".resizer-rot").draggable({"stop":onRotStop, "drag":onRotDrag, "start":onRotStart});
       </script>
     </body>
