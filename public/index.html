@@ -167,7 +167,7 @@
               $(".resizer-" + dir).css(newPos[dir]);
             }
           });
-          $(".resizer-mp").css("left", data.midpoint.left).css("top", data.midpoint.top);
+          $(".resizer-mp").css(data.midpoint);
           if(options.omit.indexOf("rot") === -1){
             var midpointRel = MathUtils.midpoint(
               MathUtils.subtract(data.midpoint, data.topLeft),
@@ -177,16 +177,16 @@
           }
         };
         var updateFullWAndH = function(){
-          if(data.angleRad < Math.PI/2){
-            data.fullW = data.height*Math.sin(data.angleRad) + data.width*Math.cos(data.angleRad);
-            data.fullH = data.height*Math.cos(data.angleRad) + data.width*Math.sin(data.angleRad);
+          var c, s;
+          c = Math.cos(data.angleRad);
+          s = Math.sin(data.angleRad);
+          if(data.angleRad <= Math.PI/2){
+            data.fullW = data.height*s + data.width*c;
+            data.fullH = data.height*c + data.width*s;
           }
         };
         var updateTopLeft = function(){
-          data.topLeft = {
-            left:data.midpoint.left - data.fullW/2,
-            top:data.midpoint.top - data.fullH/2
-          };
+          data.topLeft = MathUtils.subtract(data.midpoint, {left:data.fullW/2, top:data.fullH/2});
         };
         var updateDataRot = function(){
           updateFullWAndH();
@@ -248,20 +248,22 @@
             left:newPos[data.minLeftMarker].left,
             top:newPos[data.minTopMarker].top
           };
-          data.midpoint = MathUtils.midpoint(newPos["nw"], newPos["se"]);
-          data.width = MathUtils.dist(newPos["nw"], newPos["ne"]);
-          data.height = MathUtils.dist(newPos["nw"], newPos["sw"]);
+          data.midpoint =   MathUtils.midpoint(newPos["nw"], newPos["se"]);
+          data.width =      MathUtils.dist(newPos["nw"], newPos["ne"]);
+          data.height =     MathUtils.dist(newPos["nw"], newPos["sw"]);
           updateFullWAndH();
         };
         var onDragStart = function(){
           cache();
         };
         var onDragStop = function(){
+          var delta;
           data.topLeft = {
             left:parseFloat($(".container").css("left")),
             top:parseFloat($(".container").css("top"))
           };
-          data.midpoint = MathUtils.midpoint(data.posStart["nw"], data.posStart["se"]);
+          delta = MathUtils.subtract(data.topLeft, data.topLeftStart);
+          data.midpoint = MathUtils.add(delta, MathUtils.midpoint(data.posStart["nw"], data.posStart["se"]));
           positionHandlesFromData();
           positionElsFromData();
         };
